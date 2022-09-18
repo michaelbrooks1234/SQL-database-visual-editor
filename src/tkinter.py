@@ -2,6 +2,7 @@ from tkinter import *
 import os
 from src.database import *
 from functools import partial
+import time
 
 
 
@@ -65,8 +66,17 @@ class Window:
         return None
 
 
+    def go_back(self):
+        try:
+            self.window.destroy()
+        except:
+            None
+        
+        self.setup_landing()
 
-    def database_view_window(self, tables):
+        return None
+
+    def database_view_window(self, tables, table=None):
 
         self.window = Tk()
         self.window.geometry(f"{self.width}x{self.height}")
@@ -79,30 +89,35 @@ class Window:
         label = Label(self.frame, text="Select Table:", font=("Helvetica bold", 20), anchor=CENTER, bg="white")
         label.pack(pady=10)
 
+        Button(self.frame, text="back", command=self.go_back).place(relheight=0.05, relwidth=0.1, rely=0, relx=0)
+
+
         container = Frame(self.frame, bg="white")
         container.place(relheight=0.1, relwidth=0.8, rely=0.1)
 
         for i in range(len(tables)):
-            Button(container, text=f"{tables[i][0]}", font=("Helvetica bold", 20), command=partial(self.open_table, tables[i][0])).pack(side = LEFT)
+            Button(container, text=f"{tables[i][0]}", font=("Helvetica bold", 20), command=partial(self.open_table, tables[i][0], tables)).pack(side = LEFT)
 
-
+        if(table is not None):
+            self.open_table(table, tables)
 
         self.window.mainloop()
 
         return None
 
-    def open_table(self, table):
+    def open_table(self, table, tables):
 
         try:
             self.container.destroy()
             self.scrollbar_x.destroy()
             self.scrollbar_y.destroy()
         except:
-            self.container=None
+            None
 
         data = self.database.get_formatted_table(table)
         table_data = data[0]
         columns = data[1]
+
 
         self.frame.grid_rowconfigure(0, weight=1)
         self.frame.columnconfigure(0, weight=1)
@@ -120,16 +135,19 @@ class Window:
         self.frame_container = Frame(self.container, bg="white")
         self.container.create_window((0,0), window=self.frame_container, anchor=NW)
 
-
         for i in range(len(table_data)):
-
             for j in range(len(table_data[i])):
-                label=Label(self.frame_container, padx=20, text=f"{table_data[i][j]}", font=("Helvetica bold", 10), anchor=W, bg="white", bd=10)
-                label.grid(sticky = W, column=j, row=i)
+                if(j == 0 and i < len(table_data[i])):
+                    label=Label(self.frame_container, padx=30, relief=GROOVE , text=f"{columns[i][0]}", font=("Helvetica bold", 10), anchor=W, bg="white")
+                    label.grid(sticky=W, column=i, row=0)
+
+                label=Label(self.frame_container, padx=30, text=f"{table_data[i][j]}", font=("Helvetica bold", 10), anchor=W, bg="white")
+                label.grid(sticky = W, column=j, row=i+1)
 
                 if(j != 0):
-                    button=Button(self.frame_container, padx=5, text="Edit", font=("Helvetica bold", 5), command=partial(self.edit_entry, [i, columns[j][0]], table))
-                    button.grid(sticky= W, column=j, row=i)
+                    button=Button(self.frame_container, padx=5, text="Edit", font=("Helvetica bold", 5))
+                    button.grid(sticky=W, column=j, row=i+1)
+                    button.configure(command=partial(self.open_confirmation, i, columns[j][0], table, tables))
 
         self.frame_container.update_idletasks()
         self.container.configure(scrollregion=self.container.bbox("all"))
@@ -139,8 +157,39 @@ class Window:
         
         return None
 
-    def edit_entry(self, index, table):
-        
-        self.database.update_database_entry(index, table)
+    def open_confirmation(self, primary_key, column, table, tables):
 
-        return None 
+        try:
+            self.new_window.destroy()
+        except:
+            None
+ 
+        self.new_window = Toplevel(self.window, bg="lightgray")  
+        self.new_window.title("New Window")
+        self.new_window.geometry("400x200")
+        self.new_window.resizable(False, False)
+
+        Label(self.new_window, text="Edit Entry:", font=("Helvetica bold", 12), bg="lightgray").pack(pady=2, side=TOP)
+
+        entry = Entry(self.new_window, font=("Helvetica bold", 15))
+        entry.place(rely=0.2, relheight=0.25, relwidth=0.5, relx=0.25)
+
+        button = Button(self.new_window, text="Confirm", command= lambda: self.confirm_change(entry.get(), primary_key, column, table, tables))
+        button.place(relheight=0.25, relwidth=0.4, relx=0.1, rely=0.5)
+
+        button2 = Button(self.new_window, text="Cancel", command=lambda: self.new_window.destroy())
+        button2.place(relheight=0.25, relwidth=0.4, relx=0.5, rely=0.5)
+
+
+        return None
+
+    def confirm_change(self, new_value, primary_key, column, table, tables):
+
+        self.new_window.destroy()
+
+        self.database.update_database_entry(new_value, primary_key, column, table)
+
+        self.window.destroy()
+        
+        self.database_view_window(tables, table)
+        return None

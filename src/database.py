@@ -1,6 +1,8 @@
 from sqlite3 import *
 from sqlite3 import Error
 import os
+import random
+import math
 
 
 
@@ -23,6 +25,7 @@ class DataBase:
     def get_database_tables(self):
         result = self.cursor.execute("SELECT name FROM sqlite_master").fetchall()
         return result
+    
     
     def get_formatted_table(self, table):
         result = self.cursor.execute(f"SELECT * FROM {table}").fetchall()
@@ -96,16 +99,85 @@ class DataBase:
 
         return "done"
     
-    def update_database_entry(self, data, table):
-        primary_key = data[0]
-        column = data[1]
+    def update_database_entry(self, new_value, primary_key, column, table):
         
-        self.cursor.execute(f"SELECT {column} FROM {table} WHERE primary_key = {primary_key}").fetchone()
-
+        self.cursor.execute(f"UPDATE {table} SET '{column}' = '{new_value}' WHERE primary_key = {primary_key}")
+        self.connection.commit()
         return True
 
-        
+    def initialize_random_data_database(self):
 
+        self.cursor.executescript("""
+        BEGIN;
+        CREATE TABLE numbers(primary_key, ints, floats);
+        CREATE TABLE strings(primary_key, random_characters, random_everything);
+        CREATE TABLE words(primary_key, random_words, single_word);
+        COMMIT;
+        """)
+
+        data_for_numbers = []
+
+        for i in range(30):
+            
+            num = random.random() 
+            num = math.floor(num * 10**7)
+
+            float = random.random() * 10
+
+            data_for_numbers.append((i, num, float))
+
+        data_for_strings = []
+
+        for i in range(30):
+            char_string = ""
+            char_all_string = ""
+            for j in range(15):
+                char = chr(math.floor((random.random()*100)%25)+61)
+                char_all = chr(math.floor((random.random()*100)%67)+58)
+                if(j == 0):
+                    char_all_string = char_all
+                    char_string = char
+                else: 
+                    char_all_string += char_all 
+                    char_string += char
+            
+            data_for_strings.append((i, char_string, char_all_string))
+
+        data_for_words = []
+
+        with open('./src/strings.txt') as f:
+            lines = f.readlines()
+
+        strings = []
+
+        for i in range(100):
+            if(i != 99):
+                strings.append(lines[i][0:-1])
+            else:
+                strings.append(lines[i]) 
+
+        for i in range(30):
+            word = random.choice(strings)
+            string = ""
+            for j in range(8):
+                word_for_string = random.choice(strings)
+                if(j == 0):
+                    string = word_for_string
+                else:
+                    string += f"-{word_for_string}"
+
+            data_for_words.append((i, string, word))
+            
+        self.cursor.executemany("INSERT INTO numbers VALUES(?, ? , ?)", data_for_numbers)
+        self.cursor.executemany("INSERT INTO strings VALUES(?, ?, ?)", data_for_strings)
+        self.cursor.executemany("INSERT INTO words VALUES(?, ? , ?)", data_for_words)
+
+        self.connection.commit()
+            
+        return None
+
+
+        
 
 def setup_premade_databases():
 
@@ -121,7 +193,7 @@ def setup_premade_databases():
         database = None
     if(random_data not in current_directory):
         database = DataBase("./src/random_data.db")
-
+        database.initialize_random_data_database()
         database = None
     if(random_customer not in current_directory):
         database = DataBase("./src/random_customer.db")
