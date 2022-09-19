@@ -12,6 +12,9 @@ class DataBase:
         
         connecty = None
 
+        if(path == "new"):
+            return self.create_new_database()
+
         try:
             connecty = connect(path)
         except Error as e:
@@ -26,12 +29,39 @@ class DataBase:
         result = self.cursor.execute("SELECT name FROM sqlite_master").fetchall()
         return result
     
+    def create_new_table(self, columns, table):
+
+        columns.insert(0, "primary_key")
+        columns_tuple = tuple(columns)
+
+        print(columns_tuple)
+
+        self.cursor.execute(f"CREATE TABLE T_{table}{columns_tuple}")
+        self.connection.commit()
+        
+        return None
     
     def get_formatted_table(self, table):
         result = self.cursor.execute(f"SELECT * FROM {table}").fetchall()
 
         return [result, self.cursor.description]
-    
+
+    def add_new_entry(self, table, entries):
+
+        if(self.cursor.execute(f"SELECT MAX(primary_key) FROM {table}").fetchone()[0] is not None):
+            new_primary_key = self.cursor.execute(f"SELECT MAX(primary_key) FROM {table}").fetchone()[0]+1
+        else:
+            new_primary_key = 0 
+        entries.insert(0, new_primary_key)        
+        entries_tuple = tuple(entries)
+
+        try:
+            self.cursor.execute(f"INSERT INTO {table} VALUES {entries_tuple}")
+            self.connection.commit()
+            return True
+        except:
+            return False
+ 
     def initialize_movies_database(self):
 
         self.cursor.executescript("""
@@ -183,7 +213,6 @@ def setup_premade_databases():
 
     movies = "movies.db"
     random_data = "random_data.db"
-    random_customer = "random_customer.db"
 
     current_directory = os.listdir("./src/") 
 
@@ -194,10 +223,6 @@ def setup_premade_databases():
     if(random_data not in current_directory):
         database = DataBase("./src/random_data.db")
         database.initialize_random_data_database()
-        database = None
-    if(random_customer not in current_directory):
-        database = DataBase("./src/random_customer.db")
-
         database = None
 
     return None
